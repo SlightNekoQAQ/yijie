@@ -442,8 +442,7 @@
           const next = apply(s, m);
           const repeats = s.repetitions?.[key(next)] || 0;
           const score =
-            -search(next, level - 1, -Infinity, -top - repeats * 45) -
-            repeats * 45;
+            -search(next, level - 1, -Infinity, Infinity) - repeats * 45;
           if (score > top || (score === top && Math.random() < 0.5)) {
             top = score;
             candidate = m;
