@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"
+    />
+    <title>弈界</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main class="app">
+      <header class="topbar">
+        <div>
+          <div class="eyebrow">YIJIE · 本地对局</div>
+          <h1>弈界</h1>
+        </div>
+        <button
+          id="settingsButton"
+          class="icon-button"
+          aria-label="对局设置"
+          title="对局设置"
+        >
+          ⚙
+        </button>
+      </header>
+      <div class="match-line">
+        <span id="variant">中国象棋 · 对称规则</span
+        ><span id="moveCount">第 1 回合</span>
+      </div>
+      <section class="opponent player-strip" id="topPlayer">
+        <div class="avatar black">黑</div>
+        <div class="identity">
+          <strong id="topName">黑方</strong
+          ><small id="topRules">中国象棋走法</small>
+        </div>
+        <select id="topControl" aria-label="黑方控制方式">
+          <option value="human">玩家</option>
+          <option value="ai">AI</option>
+        </select>
+      </section>
+      <section class="board-section">
+        <div id="board" class="board chinese" role="grid" aria-label="棋盘">
+          <canvas id="boardCanvas" aria-hidden="true"></canvas>
+          <div id="pieces"></div>
+        </div>
+      </section>
+      <section class="player-strip" id="bottomPlayer">
+        <div class="avatar red">红</div>
+        <div class="identity">
+          <strong id="bottomName">红方</strong
+          ><small id="bottomRules">中国象棋走法</small>
+        </div>
+        <select id="bottomControl" aria-label="红方控制方式">
+          <option value="human">玩家</option>
+          <option value="ai">AI</option>
+        </select>
+      </section>
+      <div class="status-line">
+        <span id="status" role="status">红方走棋</span
+        ><button id="pauseButton" class="text-button" title="暂停 AI 对局">
+          暂停
+        </button>
+      </div>
+      <nav class="toolbar" aria-label="对局操作">
+        <button id="undoButton" title="悔棋" aria-label="悔棋">
+          <span class="toolbar-icon">↶</span><span>悔棋</span></button
+        ><button id="flipButton" title="翻转棋盘" aria-label="翻转棋盘">
+          <span class="toolbar-icon">⇅</span><span>翻转</span></button
+        ><button id="historyButton" title="走棋记录" aria-label="走棋记录">
+          <span class="toolbar-icon">☷</span><span>记录</span></button
+        ><button id="newButton" title="重新开始" aria-label="重新开始">
+          <span class="toolbar-icon">＋</span><span>新对局</span>
+        </button>
+      </nav>
+    </main>
+    <dialog id="settingsDialog">
+      <form method="dialog" class="dialog-content">
+        <div class="dialog-header">
+          <h2>对局设置</h2>
+          <button class="close" aria-label="关闭">×</button>
+        </div>
+        <label
+          >棋盘与初始摆法<select id="boardType">
+            <option value="xiangqi">中国象棋 · 九路</option>
+            <option value="western">国际象棋 · 八路</option>
+          </select></label
+        ><label
+          >红方 / 白方走法<select id="redRules">
+            <option value="xiangqi">中国象棋走法</option>
+            <option value="western">国际象棋走法</option>
+          </select></label
+        ><label
+          >黑方走法<select id="blackRules">
+            <option value="xiangqi">中国象棋走法</option>
+            <option value="western">国际象棋走法</option>
+          </select></label
+        >
+        <div class="hint" id="setupHint">
+          棋盘决定初始位置；切换走法时，棋子阵容会按预设调整。
+        </div>
+        <button type="button" id="startButton" class="primary">
+          开始新对局
+        </button>
+        <div class="fineprint">
+          混合规则为实验玩法。逼和判负，三次重复判和；混合局不允许王车易位。
+        </div>
+      </form>
+    </dialog>
+    <dialog id="historyDialog">
+      <div class="dialog-content">
+        <div class="dialog-header">
+          <h2>走棋记录</h2>
+          <button class="close" id="closeHistory" aria-label="关闭">×</button>
+        </div>
+        <ol id="moveList" class="move-list"></ol>
+      </div>
+    </dialog>
+    <dialog id="promotionDialog">
+      <div class="dialog-content">
+        <h2>兵升变</h2>
+        <div id="promotionChoices" class="promotion-choices"></div>
+      </div>
+    </dialog>
+    <script src="rules.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
