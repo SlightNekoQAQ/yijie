@@ -117,6 +117,9 @@
         : "") +
       (game.boardType === "xiangqi" && game.sides[p.side] === "western"
         ? " western-army"
+        : "") +
+      (controls.every((c) => c === "human") && p.side === (flipped ? 0 : 1)
+        ? " facing-top"
         : "")
     );
   }
@@ -212,7 +215,9 @@
   function renderBoard() {
     const board = $("board");
     board.className =
-      "board " + (game.boardType === "xiangqi" ? "chinese" : "western");
+      "board " +
+      (game.boardType === "xiangqi" ? "chinese" : "western") +
+      (controls.every((c) => c === "human") ? " two-player" : "");
     const holder = $("pieces");
     holder.replaceChildren();
     const available =

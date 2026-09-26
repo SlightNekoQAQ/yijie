@@ -196,6 +196,9 @@ button:disabled {
   box-shadow: 0 2px 3px #271f1850;
   user-select: none;
 }
+.board.two-player .piece.facing-top:not(.flying-piece) {
+  transform: rotate(180deg);
+}
 .piece.flying-piece {
   position: absolute;
   z-index: 3;
@@ -204,6 +207,9 @@ button:disabled {
   transition:
     left 210ms ease-out,
     top 210ms ease-out;
+}
+.board.two-player .piece.flying-piece.facing-top {
+  transform: translate(-50%, -50%) rotate(180deg);
 }
 .chinese .piece {
   background: #f6e2b6;

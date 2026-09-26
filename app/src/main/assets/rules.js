@@ -2,16 +2,10 @@
 (function (root) {
   "use strict";
   const values = {
-    k: 20000,
-    q: 900,
-    r: 500,
-    c: 450,
-    b: 300,
-    n: 300,
-    e: 240,
-    a: 190,
-    p: 100,
+    western: { k: 20000, q: 900, r: 500, b: 300, n: 300, p: 100 },
+    xiangqi: { k: 20000, r: 900, n: 400, c: 450, e: 200, a: 200, p: 100 },
   };
+  const pieceValue = (s, p) => values[s.sides[p.side]][p.type];
   const inside = (s, x, y) => x >= 0 && x < s.width && y >= 0 && y < s.height;
   const at = (s, x, y) => (inside(s, x, y) ? s.board[y][x] : null);
   const direction = (side) => (side === 0 ? -1 : 1);
@@ -31,7 +25,7 @@
   function create(
     boardType = "xiangqi",
     sides = ["xiangqi", "xiangqi"],
-    variant = "conservative",
+    variant = "handicap",
   ) {
     const chinese = boardType === "xiangqi";
     const width = chinese ? 9 : 8,
@@ -66,7 +60,7 @@
                 null,
                 "b",
                 "n",
-                "r",
+                variant === "handicap" ? null : "r",
               ];
         types.forEach((type, x) => {
           if (type) board[y][x] = { side, type, moved: false };
@@ -380,7 +374,7 @@
     for (let y = 0; y < s.height; y++)
       for (let x = 0; x < s.width; x++) {
         const p = at(s, x, y);
-        if (p) score += (p.side === side ? 1 : -1) * values[p.type];
+        if (p) score += (p.side === side ? 1 : -1) * pieceValue(s, p);
       }
     return score;
   }
@@ -389,27 +383,49 @@
     for (let y = 0; y < s.height; y++)
       for (let x = 0; x < s.width; x++) {
         const p = at(s, x, y);
-        if (p?.type === "p")
-          score +=
-            (p.side === side ? 1 : -1) * Math.abs(back(s, p.side) - y) * 5;
+        if (p?.type === "p") {
+          const progress = Math.abs(back(s, p.side) - y) * 5;
+          const riverBonus =
+            s.sides[p.side] === "xiangqi" && otherHalf(s, p.side, y) ? 65 : 0;
+          score += (p.side === side ? 1 : -1) * (progress + riverBonus);
+        }
       }
     return score;
   }
-  function bestMove(s, depth = 3) {
-    function search(pos, remaining, alpha, beta) {
-      if (!remaining) {
-        if (inCheck(pos, pos.turn) && !legal(pos).length) return -30000;
-        return evaluate(pos, pos.turn);
-      }
-      const moves = legal(pos);
-      if (!moves.length) return -30000 - remaining;
-      moves.sort(
+  function bestMove(s, depth = 2) {
+    const moves = legal(s);
+    if (!moves.length) return null;
+    const order = (pos, list) =>
+      list.sort(
         (a, b) =>
-          (values[at(pos, b.nx, b.ny)?.type] || 0) -
-          (values[at(pos, a.nx, a.ny)?.type] || 0),
+          (at(pos, b.nx, b.ny) ? pieceValue(pos, at(pos, b.nx, b.ny)) : 0) -
+          (at(pos, a.nx, a.ny) ? pieceValue(pos, at(pos, a.nx, a.ny)) : 0),
       );
+    order(s, moves);
+    let chosen = moves[0];
+    const count = s.board.flat().filter(Boolean).length;
+    const limit =
+      count <= 7
+        ? Math.max(depth, 4)
+        : count <= 12
+          ? Math.max(depth, 3)
+          : depth;
+    const timeout = Symbol("search timeout");
+    let deadline = Infinity,
+      nodes = 0;
+    function search(pos, remaining, alpha, beta) {
+      if ((++nodes & 63) === 0 && Date.now() > deadline) throw timeout;
+      if (!remaining) {
+        const checked = inCheck(pos, pos.turn);
+        if (checked && !legal(pos).length) return -30000;
+        // Stalemate is also a loss in this variant; check it in sparse endgames.
+        if (count <= 12 && !checked && !legal(pos).length) return -30000;
+        return evaluate(pos, pos.turn) - (checked ? 120 : 0);
+      }
+      const replies = order(pos, legal(pos));
+      if (!replies.length) return -30000 - remaining;
       let best = -Infinity;
-      for (const m of moves) {
+      for (const m of replies) {
         const score = -search(apply(pos, m), remaining - 1, -beta, -alpha);
         best = Math.max(best, score);
         alpha = Math.max(alpha, score);
@@ -417,23 +433,32 @@
       }
       return best;
     }
-    const moves = legal(s);
-    if (!moves.length) return null;
-    moves.sort(
-      (a, b) =>
-        (values[at(s, b.nx, b.ny)?.type] || 0) -
-        (values[at(s, a.nx, a.ny)?.type] || 0),
-    );
-    let chosen = moves[0],
-      top = -Infinity;
-    for (const m of moves) {
-      const score =
-        -search(apply(s, m), depth - 1, -Infinity, Infinity) +
-        (Math.random() - 0.5) * 3;
-      if (score > top) {
-        top = score;
-        chosen = m;
+    for (let level = Math.max(1, depth); level <= limit; level++) {
+      let top = -Infinity,
+        candidate = moves[0],
+        complete = true;
+      try {
+        for (const m of moves) {
+          const next = apply(s, m);
+          const repeats = s.repetitions?.[key(next)] || 0;
+          const score =
+            -search(next, level - 1, -Infinity, -top - repeats * 45) -
+            repeats * 45;
+          if (score > top || (score === top && Math.random() < 0.5)) {
+            top = score;
+            candidate = m;
+          }
+        }
+      } catch (error) {
+        if (error !== timeout) throw error;
+        complete = false;
       }
+      if (!complete) break;
+      chosen = candidate;
+      moves.splice(moves.indexOf(chosen), 1);
+      moves.unshift(chosen);
+      // Complete the requested search first; spend at most 650 ms on deeper endgames.
+      if (level === depth) deadline = Date.now() + 650;
     }
     return chosen;
   }

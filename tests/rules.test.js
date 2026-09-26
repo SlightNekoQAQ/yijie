@@ -27,6 +27,12 @@ test("board determines layout while each side independently determines its army"
   );
   assert.equal(mixed.board[9][3].type, "b");
   assert.equal(mixed.board[9][5], null);
+  assert.equal(mixed.board[9][8], null);
+  assert.equal(
+    R.create("xiangqi", ["western", "xiangqi"], "conservative").board[9][8]
+      .type,
+    "r",
+  );
   assert.equal(mixed.board[7][1], null);
   assert.equal(mixed.board[6][2].type, "p");
   assert.equal(mixed.board[2][1].type, "c");
@@ -155,6 +161,43 @@ test("material scores reward captures and penalize losses", () => {
   assert.equal(R.materialScore(s, 0), 100);
   s.board[4][0] = null;
   assert.equal(R.materialScore(s, 0), 0);
+});
+
+test("Chinese and western armies use distinct material values", () => {
+  const s = empty("xiangqi", ["xiangqi", "western"]);
+  s.board[9][4] = piece(0, "k");
+  s.board[0][3] = piece(1, "k");
+  for (const [type, expected] of [
+    ["r", 900],
+    ["n", 400],
+    ["c", 450],
+    ["e", 200],
+    ["a", 200],
+    ["p", 100],
+  ]) {
+    s.board[4][0] = piece(0, type);
+    assert.equal(R.materialScore(s, 0), expected, type);
+  }
+  s.board[4][0] = piece(1, "r");
+  assert.equal(R.materialScore(s, 0), -500);
+});
+
+test("endgame search sees a forced win beyond the two-ply horizon", () => {
+  const s = empty("western", ["western", "western"]);
+  s.turn = 1;
+  s.board[0][0] = piece(0, "k");
+  s.board[2][2] = piece(1, "k");
+  s.board[2][4] = piece(1, "q");
+  const next = R.play(s, R.bestMove(s, 2));
+  assert.ok(
+    next.result === "1" ||
+      R.legal(next).every((reply) => {
+        const position = R.play(next, reply);
+        return R.legal(position).some(
+          (m) => R.play(position, m).result === "1",
+        );
+      }),
+  );
 });
 
 test("AI prefers a terminal win over a material gain", () => {
