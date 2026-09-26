@@ -7,10 +7,24 @@ android {
         applicationId 'com.yijie.game'
         minSdk 24
         targetSdk 34
-        versionCode 1
-        versionName '0.1.0'
+        versionCode 2
+        versionName '0.2.0'
+    }
+    signingConfigs {
+        if (System.getenv('YIJIE_KEYSTORE_PATH')) {
+            ci {
+                storeFile file(System.getenv('YIJIE_KEYSTORE_PATH'))
+                storeType 'pkcs12'
+                storePassword System.getenv('YIJIE_STORE_PASSWORD')
+                keyAlias 'yijie'
+                keyPassword System.getenv('YIJIE_STORE_PASSWORD')
+            }
+        }
     }
     buildTypes {
+        debug {
+            if (System.getenv('YIJIE_KEYSTORE_PATH')) signingConfig signingConfigs.ci
+        }
         release { minifyEnabled false }
     }
     compileOptions {

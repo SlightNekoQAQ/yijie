@@ -3,11 +3,11 @@
   "use strict";
   const values = {
     k: 20000,
-    q: 950,
-    r: 510,
-    c: 460,
-    b: 340,
-    n: 320,
+    q: 900,
+    r: 500,
+    c: 450,
+    b: 300,
+    n: 300,
     e: 240,
     a: 190,
     p: 100,
@@ -28,7 +28,11 @@
   const soldierRow = (s, side) =>
     s.width === 9 ? (side === 0 ? 6 : 3) : side === 0 ? 6 : 1;
 
-  function create(boardType = "xiangqi", sides = ["xiangqi", "xiangqi"]) {
+  function create(
+    boardType = "xiangqi",
+    sides = ["xiangqi", "xiangqi"],
+    variant = "conservative",
+  ) {
     const chinese = boardType === "xiangqi";
     const width = chinese ? 9 : 8,
       height = chinese ? 10 : 8;
@@ -38,6 +42,7 @@
       width,
       height,
       sides: [...sides],
+      variant,
       board,
       turn: 0,
       ep: null,
@@ -52,7 +57,17 @@
         const types =
           rules === "xiangqi"
             ? ["r", "n", "e", "a", "k", "a", "e", "n", "r"]
-            : ["r", "n", "q", "b", "k", null, "b", "n", "r"];
+            : [
+                "r",
+                "n",
+                variant === "queen" ? "q" : null,
+                "b",
+                "k",
+                null,
+                "b",
+                "n",
+                "r",
+              ];
         types.forEach((type, x) => {
           if (type) board[y][x] = { side, type, moved: false };
         });
@@ -319,6 +334,34 @@
       }
     return moves;
   }
+  function explain(s, fromX, fromY, toX, toY) {
+    if (s.result) return "对局已结束，请开始新对局";
+    const p = at(s, fromX, fromY),
+      target = at(s, toX, toY);
+    if (!p) return "先选择自己的棋子";
+    if (p.side !== s.turn) return "现在不是这一方的回合";
+    if (target?.side === p.side) return "不能落在己方棋子的位置";
+    if (pseudo(s, fromX, fromY).some((m) => m.nx === toX && m.ny === toY)) {
+      if (target?.type === "k") return "将死时直接判胜，不能吃王或将";
+      if (
+        !legal(s).some(
+          (m) => m.x === fromX && m.y === fromY && m.nx === toX && m.ny === toY,
+        )
+      )
+        return "这步会使自己的王或将受到攻击，必须先解将";
+      return "";
+    }
+    if (s.sides[p.side] === "xiangqi") {
+      if (p.type === "n") return "马走日字，第一步的马腿不能被挡";
+      if (p.type === "e") return "象走田字，不能塞象眼或过河";
+      if (p.type === "a" || p.type === "k")
+        return "士和将只能在九宫内按各自方向走";
+      if (p.type === "c") return "炮直走不越子；吃子必须恰好隔一子";
+      if (p.type === "p") return "兵只能前进，过河后才能横走";
+    } else if (p.type === "p")
+      return "兵直进不能吃子，斜走只能吃子；前方有子不能走";
+    return "不符合该棋子的走法，或移动路径被挡";
+  }
   function play(s, m, promotion = "q") {
     const actual = legal(s).find(
       (v) => v.x === m.x && v.y === m.y && v.nx === m.nx && v.ny === m.ny,
@@ -332,22 +375,32 @@
     else if (!legal(next).length) next.result = String(s.turn);
     return next;
   }
-  function evaluate(s, side) {
+  function materialScore(s, side) {
     let score = 0;
     for (let y = 0; y < s.height; y++)
       for (let x = 0; x < s.width; x++) {
         const p = at(s, x, y);
-        if (p)
-          score +=
-            (p.side === side ? 1 : -1) *
-            (values[p.type] +
-              (p.type === "p" ? Math.abs(back(s, p.side) - y) * 5 : 0));
+        if (p) score += (p.side === side ? 1 : -1) * values[p.type];
       }
     return score;
   }
-  function bestMove(s, depth = 2) {
+  function evaluate(s, side) {
+    let score = materialScore(s, side);
+    for (let y = 0; y < s.height; y++)
+      for (let x = 0; x < s.width; x++) {
+        const p = at(s, x, y);
+        if (p?.type === "p")
+          score +=
+            (p.side === side ? 1 : -1) * Math.abs(back(s, p.side) - y) * 5;
+      }
+    return score;
+  }
+  function bestMove(s, depth = 3) {
     function search(pos, remaining, alpha, beta) {
-      if (!remaining) return evaluate(pos, pos.turn);
+      if (!remaining) {
+        if (inCheck(pos, pos.turn) && !legal(pos).length) return -30000;
+        return evaluate(pos, pos.turn);
+      }
       const moves = legal(pos);
       if (!moves.length) return -30000 - remaining;
       moves.sort(
@@ -390,10 +443,12 @@
     pseudo,
     legal,
     play,
+    explain,
     apply,
     inCheck,
     isAttacked,
     bestMove,
+    materialScore,
     key,
   };
   if (typeof module !== "undefined") module.exports = api;

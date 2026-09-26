@@ -40,7 +40,12 @@
     flipped = false,
     paused = false,
     timer = null,
-    generation = 0;
+    generation = 0,
+    soundEnabled = true,
+    audio = null,
+    flight = null,
+    flightTimer = null,
+    feedbackTimer = null;
   function stopAI() {
     clearTimeout(timer);
     timer = null;
@@ -54,6 +59,8 @@
         saved.game.sides?.length === 2
       ) {
         ({ game, snapshots, records, controls, flipped, paused } = saved);
+        game.variant ??= "queen";
+        soundEnabled = saved.soundEnabled !== false;
         return;
       }
     } catch (_) {
@@ -70,7 +77,15 @@
     try {
       localStorage.setItem(
         "yijie-save",
-        JSON.stringify({ game, snapshots, records, controls, flipped, paused }),
+        JSON.stringify({
+          game,
+          snapshots,
+          records,
+          controls,
+          flipped,
+          paused,
+          soundEnabled,
+        }),
       );
     } catch (_) {
       /* Play remains available without storage. */
@@ -93,6 +108,106 @@
   }
   function displayCoords(x, y) {
     return flipped ? [game.width - 1 - x, game.height - 1 - y] : [x, y];
+  }
+  function pieceClass(p) {
+    return (
+      `piece side${p.side}` +
+      (game.boardType === "western" && game.sides[p.side] === "xiangqi"
+        ? " chinese-army"
+        : "") +
+      (game.boardType === "xiangqi" && game.sides[p.side] === "western"
+        ? " western-army"
+        : "")
+    );
+  }
+  function cancelFlight() {
+    clearTimeout(flightTimer);
+    if (flight) {
+      flight.destination.classList.remove("arriving");
+      flight.piece.remove();
+      flight = null;
+    }
+  }
+  function animateMove(move, piece) {
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+    const board = $("board"),
+      [sx, sy] = displayCoords(move.x, move.y),
+      [tx, ty] = displayCoords(move.nx, move.ny);
+    const destination = $("pieces").children[ty * game.width + tx];
+    if (!destination) return;
+    const moving = document.createElement("span");
+    moving.className = pieceClass(piece) + " flying-piece";
+    moving.textContent = label(piece);
+    moving.style.width = `${82 / game.width}%`;
+    moving.style.height = `${82 / game.height}%`;
+    moving.style.left = `${((sx + 0.5) * 100) / game.width}%`;
+    moving.style.top = `${((sy + 0.5) * 100) / game.height}%`;
+    destination.classList.add("arriving");
+    board.append(moving);
+    flight = { piece: moving, destination };
+    moving.getBoundingClientRect();
+    moving.style.left = `${((tx + 0.5) * 100) / game.width}%`;
+    moving.style.top = `${((ty + 0.5) * 100) / game.height}%`;
+    flightTimer = setTimeout(cancelFlight, 250);
+  }
+  function unlockAudio() {
+    if (!soundEnabled) return null;
+    try {
+      const Audio = window.AudioContext || window.webkitAudioContext;
+      if (!Audio) return null;
+      audio ??= new Audio();
+      if (audio.state === "suspended") audio.resume().catch(() => {});
+      return audio;
+    } catch (_) {
+      return null;
+    }
+  }
+  function playSound(kind) {
+    const ctx = unlockAudio();
+    if (!ctx || ctx.state !== "running") return;
+    const now = ctx.currentTime;
+    const notes =
+      kind === "win"
+        ? [520, 780]
+        : kind === "capture"
+          ? [240, 170]
+          : kind === "check"
+            ? [350, 510]
+            : [360];
+    notes.forEach((frequency, index) => {
+      const osc = ctx.createOscillator(),
+        gain = ctx.createGain(),
+        start = now + index * 0.07;
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(frequency, start);
+      gain.gain.setValueAtTime(0.001, start);
+      gain.gain.exponentialRampToValueAtTime(0.13, start + 0.012);
+      gain.gain.exponentialRampToValueAtTime(0.001, start + 0.11);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(start);
+      osc.stop(start + 0.12);
+    });
+  }
+  function showStatus() {
+    $("status").classList.remove("feedback");
+    $("status").textContent =
+      game.result === "draw"
+        ? "三次重复 · 和棋"
+        : game.result !== null
+          ? `${name(Number(game.result))}获胜`
+          : `${name(game.turn)}走棋${R.inCheck(game, game.turn) ? " · 将军！" : ""}${paused && controls[game.turn] === "ai" ? " · 已暂停" : ""}`;
+  }
+  function hint(message) {
+    clearTimeout(feedbackTimer);
+    $("status").textContent = message;
+    $("status").classList.add("feedback");
+    feedbackTimer = setTimeout(showStatus, 2500);
+  }
+  function updatePresetVisibility() {
+    $("presetField").hidden =
+      $("boardType").value !== "xiangqi" ||
+      ($("redRules").value !== "western" &&
+        $("blackRules").value !== "western");
   }
   function renderBoard() {
     const board = $("board");
@@ -126,14 +241,7 @@
         );
         if (p) {
           const piece = document.createElement("span");
-          piece.className =
-            `piece side${p.side}` +
-            (game.boardType === "western" && game.sides[p.side] === "xiangqi"
-              ? " chinese-army"
-              : "") +
-            (game.boardType === "xiangqi" && game.sides[p.side] === "western"
-              ? " western-army"
-              : "");
+          piece.className = pieceClass(p);
           piece.textContent = label(p);
           cell.append(piece);
         }
@@ -210,12 +318,8 @@
         game.sides[side] === "xiangqi" ? "中国象棋走法" : "国际象棋走法";
       $(id + "Control").value = controls[side];
     }
-    $("status").textContent =
-      game.result === "draw"
-        ? "三次重复 · 和棋"
-        : game.result !== null
-          ? `${name(Number(game.result))}获胜`
-          : `${name(game.turn)}走棋${R.inCheck(game, game.turn) ? " · 将军！" : ""}${paused && controls[game.turn] === "ai" ? " · 已暂停" : ""}`;
+    clearTimeout(feedbackTimer);
+    showStatus();
     $("undoButton").disabled = !snapshots.length;
     $("pauseButton").textContent = paused ? "继续" : "暂停";
     $("pauseButton").style.visibility =
@@ -230,13 +334,18 @@
     $("boardType").value = game.boardType;
     $("redRules").value = game.sides[0];
     $("blackRules").value = game.sides[1];
+    $("mixedPreset").value = game.variant;
+    $("soundToggle").checked = soundEnabled;
+    updatePresetVisibility();
     renderBoard();
     persist();
     scheduleAI();
   }
   function commit(move, promotion = "q") {
     stopAI();
+    cancelFlight();
     const piece = R.at(game, move.x, move.y),
+      captured = R.at(game, move.nx, move.ny) || move.enPassant,
       description = `${name(game.turn)} ${label(piece)} ${xy(move.x, move.y)} → ${xy(move.nx, move.ny)}`;
     const next = R.play(game, move, promotion);
     snapshots.push(game);
@@ -249,9 +358,22 @@
     game = next;
     selected = null;
     render();
+    animateMove(move, piece);
+    playSound(
+      game.result
+        ? "win"
+        : R.inCheck(game, game.turn)
+          ? "check"
+          : captured
+            ? "capture"
+            : "move",
+    );
   }
   function tap(x, y) {
-    if (game.result || controls[game.turn] !== "human") return;
+    if (flight) cancelFlight();
+    if (game.result) return hint("对局已结束，请开始新对局");
+    if (controls[game.turn] !== "human")
+      return hint("当前由 AI 走棋，可切换为玩家接手");
     const p = R.at(game, x, y),
       moves = selected
         ? R.legal(game).filter(
@@ -292,8 +414,19 @@
       commit(m);
       return;
     }
-    selected = p?.side === game.turn ? { x, y } : null;
-    renderBoard();
+    if (p?.side === game.turn) {
+      selected = selected?.x === x && selected?.y === y ? null : { x, y };
+      renderBoard();
+      if (selected && !R.legal(game).some((m) => m.x === x && m.y === y))
+        hint("这枚棋子当前没有合法走法，可能被挡或需要先解将");
+      else showStatus();
+      return;
+    }
+    hint(
+      selected
+        ? R.explain(game, selected.x, selected.y, x, y)
+        : "先选择己方棋子",
+    );
   }
   function scheduleAI() {
     stopAI();
@@ -310,12 +443,22 @@
   }
   load();
   $("settingsButton").onclick = () => $("settingsDialog").showModal();
+  for (const id of ["boardType", "redRules", "blackRules"])
+    $(id).onchange = updatePresetVisibility;
+  $("soundToggle").onchange = (event) => {
+    soundEnabled = event.target.checked;
+    if (soundEnabled) unlockAudio();
+    persist();
+  };
   $("startButton").onclick = () => {
     const type = $("boardType").value,
-      sides = [$("redRules").value, $("blackRules").value];
+      sides = [$("redRules").value, $("blackRules").value],
+      variant = $("mixedPreset").value;
     if (game.ply && !confirm("开始新对局？当前棋局会被替换。")) return;
     stopAI();
-    game = R.create(type, sides);
+    cancelFlight();
+    unlockAudio();
+    game = R.create(type, sides, variant);
     snapshots = [];
     records = [];
     selected = null;
@@ -327,6 +470,8 @@
   for (const side of [0, 1])
     $(side === 0 ? "bottomControl" : "topControl").onchange = (event) => {
       controls[side] = event.target.value;
+      cancelFlight();
+      unlockAudio();
       paused = false;
       selected = null;
       render();
@@ -338,6 +483,7 @@
   $("undoButton").onclick = () => {
     if (!snapshots.length) return;
     stopAI();
+    cancelFlight();
     game = snapshots.pop();
     records.pop();
     selected = null;
@@ -345,6 +491,7 @@
     render();
   };
   $("flipButton").onclick = () => {
+    cancelFlight();
     flipped = !flipped;
     render();
   };

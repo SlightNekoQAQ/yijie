@@ -181,6 +181,9 @@ button:disabled {
   position: absolute;
   pointer-events: none;
 }
+.square.arriving .piece {
+  opacity: 0;
+}
 .piece {
   position: relative;
   width: 82%;
@@ -192,6 +195,15 @@ button:disabled {
   font-weight: 800;
   box-shadow: 0 2px 3px #271f1850;
   user-select: none;
+}
+.piece.flying-piece {
+  position: absolute;
+  z-index: 3;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  transition:
+    left 210ms ease-out,
+    top 210ms ease-out;
 }
 .chinese .piece {
   background: #f6e2b6;
@@ -251,6 +263,14 @@ button:disabled {
   padding: 3px 2px;
   font-size: 13px;
   font-weight: 650;
+}
+.status-line #status {
+  flex: 1;
+  min-width: 0;
+  line-height: 1.4;
+}
+.status-line #status.feedback {
+  color: #ad4039;
 }
 .status-line .text-button {
   background: transparent;
@@ -324,6 +344,21 @@ dialog::backdrop {
   font-weight: 700;
   color: #425d54;
 }
+#presetField[hidden] {
+  display: none;
+}
+.dialog-content .toggle-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  margin-bottom: 5px;
+}
+.toggle-row input {
+  width: 20px;
+  height: 20px;
+  accent-color: #21664f;
+}
 .dialog-content label select {
   display: block;
   width: 100%;
@@ -376,6 +411,11 @@ dialog::backdrop {
   border: 1px solid #d5e1d8;
   border-radius: 4px;
   font-size: 27px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .piece.flying-piece {
+    transition-duration: 0ms;
+  }
 }
 @media (max-height: 700px) {
   .topbar {

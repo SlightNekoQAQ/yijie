@@ -20,7 +20,11 @@ test("board determines layout while each side independently determines its army"
   assert.equal(standard.board[2][7].type, "c");
   assert.equal(standard.board[6][0].type, "p");
   const mixed = R.create("xiangqi", ["western", "xiangqi"]);
-  assert.equal(mixed.board[9][2].type, "q");
+  assert.equal(mixed.board[9][2], null);
+  assert.equal(
+    R.create("xiangqi", ["western", "xiangqi"], "queen").board[9][2].type,
+    "q",
+  );
   assert.equal(mixed.board[9][3].type, "b");
   assert.equal(mixed.board[9][5], null);
   assert.equal(mixed.board[7][1], null);
@@ -98,6 +102,34 @@ test("a cannon can check a western king across exactly one screen", () => {
   assert.equal(R.isAttacked(s, 6, 5, 1), true);
 });
 
+test("cannon captures across exactly one screen, not zero or two", () => {
+  const s = empty("xiangqi", ["xiangqi", "western"]);
+  s.board[9][4] = piece(0, "k");
+  s.board[0][3] = piece(1, "k");
+  s.board[7][0] = piece(0, "c");
+  s.board[4][0] = piece(1, "n");
+  assert.equal(has(R.legal(s), 0, 4), false);
+  assert.match(R.explain(s, 0, 7, 0, 4), /恰好隔一子/);
+  s.board[5][0] = piece(0, "p");
+  assert.equal(
+    has(
+      R.legal(s).filter((m) => m.x === 0 && m.y === 7),
+      0,
+      4,
+    ),
+    true,
+  );
+  s.board[6][0] = piece(0, "p");
+  assert.equal(
+    has(
+      R.legal(s).filter((m) => m.x === 0 && m.y === 7),
+      0,
+      4,
+    ),
+    false,
+  );
+});
+
 test("a player in check cannot make an unrelated move", () => {
   const s = empty("xiangqi", ["western", "xiangqi"]);
   s.board[9][4] = piece(0, "k");
@@ -109,6 +141,30 @@ test("a player in check cannot make an unrelated move", () => {
     R.legal(s).some((m) => m.x === 0),
     false,
   );
+  assert.match(R.explain(s, 0, 9, 0, 8), /必须先解将/);
+});
+
+test("material scores reward captures and penalize losses", () => {
+  const s = empty("western", ["western", "western"]);
+  s.board[7][4] = piece(0, "k");
+  s.board[0][4] = piece(1, "k");
+  s.board[4][0] = piece(0, "p");
+  s.board[3][1] = piece(1, "n");
+  assert.equal(R.materialScore(s, 0), -200);
+  s.board[3][1] = null;
+  assert.equal(R.materialScore(s, 0), 100);
+  s.board[4][0] = null;
+  assert.equal(R.materialScore(s, 0), 0);
+});
+
+test("AI prefers a terminal win over a material gain", () => {
+  const s = empty("western", ["western", "western"]);
+  s.turn = 1;
+  s.board[0][0] = piece(0, "k");
+  s.board[2][2] = piece(1, "k");
+  s.board[3][1] = piece(1, "q");
+  const move = R.bestMove(s, 2);
+  assert.equal(R.play(s, move).result, "1");
 });
 
 test("stalemate is a loss, not a draw", () => {

@@ -97,14 +97,23 @@
             <option value="western">国际象棋走法</option>
           </select></label
         >
+        <label id="presetField"
+          >九路西式阵容<select id="mixedPreset">
+            <option value="conservative">保守试验 · 撤后撤炮</option>
+            <option value="queen">原始实验 · 单后撤炮</option>
+          </select></label
+        >
+        <label class="toggle-row" for="soundToggle"
+          ><span>音效</span><input type="checkbox" id="soundToggle" checked
+        /></label>
         <div class="hint" id="setupHint">
-          棋盘决定初始位置；切换走法时，棋子阵容会按预设调整。
+          混合摆法仍在测试；单后阵容会明显增强西式方。
         </div>
         <button type="button" id="startButton" class="primary">
           开始新对局
         </button>
         <div class="fineprint">
-          混合规则为实验玩法。逼和判负，三次重复判和；混合局不允许王车易位。
+          混合规则为自定实验玩法。无合法着判负，三次重复判和；混合局不允许王车易位。
         </div>
       </form>
     </dialog>

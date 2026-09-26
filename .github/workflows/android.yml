@@ -29,7 +29,16 @@ jobs:
           gradle-version: "8.10.2"
       - name: Install Android SDK
         run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Restore signing key
+        env:
+          YIJIE_KEYSTORE_BASE64: ${{ secrets.YIJIE_KEYSTORE_BASE64 }}
+        run: |
+          test -n "$YIJIE_KEYSTORE_BASE64"
+          printf '%s' "$YIJIE_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/yijie.p12"
       - name: Build installable debug APK
+        env:
+          YIJIE_KEYSTORE_PATH: ${{ runner.temp }}/yijie.p12
+          YIJIE_STORE_PASSWORD: ${{ secrets.YIJIE_STORE_PASSWORD }}
         run: gradle --no-daemon :app:assembleDebug
       - uses: actions/upload-artifact@v4
         with:
