@@ -1,3 +1,5 @@
+注意su
+
 # 弈界 Yijie
 
 中国象棋与国际象棋，在同一张棋盘上相遇。
@@ -42,3 +44,5 @@ AI 完全在设备上运行，按双方各自棋制评估材料、位置和将�
 ## 反馈
 
 欢迎在 [Issues](https://github.com/SlightNekoQAQ/yijie/issues) 提交问题或建议。棋局相关问题请附棋盘截图、双方走法、阵容和下一步操作，便于复现。
+
+所有内容均为AI编写 本人只提供了创意与想法 代码来源：GTP-6 Astra、GTP-6 Sol、GTP-6.1 Sol 
