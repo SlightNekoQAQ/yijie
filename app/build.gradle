@@ -25,7 +25,10 @@ android {
         debug {
             if (System.getenv('YIJIE_KEYSTORE_PATH')) signingConfig signingConfigs.ci
         }
-        release { minifyEnabled false }
+        release {
+            minifyEnabled false
+            if (System.getenv('YIJIE_KEYSTORE_PATH')) signingConfig signingConfigs.ci
+        }
     }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17

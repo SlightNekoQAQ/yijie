@@ -35,13 +35,15 @@ jobs:
         run: |
           test -n "$YIJIE_KEYSTORE_BASE64"
           printf '%s' "$YIJIE_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/yijie.p12"
-      - name: Build installable debug APK
+      - name: Build signed release APK
         env:
           YIJIE_KEYSTORE_PATH: ${{ runner.temp }}/yijie.p12
           YIJIE_STORE_PASSWORD: ${{ secrets.YIJIE_STORE_PASSWORD }}
-        run: gradle --no-daemon :app:assembleDebug
+        run: gradle --no-daemon :app:assembleRelease
+      - name: Verify release signature
+        run: $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose app/build/outputs/apk/release/app-release.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: yijie-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: yijie-release-apk
+          path: app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
